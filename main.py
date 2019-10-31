@@ -26,39 +26,6 @@ def load_data(url, name):
     normalized_df.to_csv(name, index=False)
 
 
-def predict_1(present, average):
-    labels = np.array(present['temp_max'])
-    features = present.drop('temp_max', axis=1)
-    feature_list = list(features.columns)
-    print(feature_list)
-    features = np.array(features)
-
-    train_features, test_features, train_labels, test_labels = train_test_split(features, labels, test_size=0.25,
-                                                                                random_state=42)
-
-    print('Training Features Shape:', train_features.shape)
-    print('Training Labels Shape:', train_labels.shape)
-    print('Testing Features Shape:', test_features.shape)
-    print('Testing Labels Shape:', test_labels.shape)
-
-    baseline_preds = test_features[:, feature_list.index('temp_max')]
-    baseline_errors = abs(baseline_preds - test_labels)
-    print('Average baseline error: ', round(np.mean(baseline_errors), 2), 'degrees.')
-
-    rf = RandomForestRegressor(n_estimators=1000, random_state=42)
-
-    rf.fit(train_features, train_labels)
-
-    predictions = rf.predict(test_features)
-    errors = abs(predictions - test_labels)
-
-    print('Mean Absolute Error:', round(np.mean(errors), 2), 'degrees.')
-
-    mape = 100 * (errors / test_labels)
-    accuracy = 100 - np.mean(mape)
-    print('Accuracy:', round(accuracy, 2), '%.')
-
-
 load_data('http://localhost:8000/api/ydx/history/', 'ydx_data.csv')
 load_data('http://localhost:8000/api/gism/history/', 'gism_data.csv')
 load_data('http://localhost:8000/api/ydx/history/', 'owm_data.csv')
@@ -76,7 +43,7 @@ date = []
 for _ in date_str:
     d = datetime.datetime.strptime(_, "%Y-%m-%dT%H:%M:%S.%fZ")
     d.date()
-    d = datetime.datetime(d.year, d.month, d.day)
+    d = datetime.datetime(d.year, d.month, d.day, d.hour)
     date.append(int(d.timestamp()))
 
 df = pd.DataFrame({
@@ -85,6 +52,7 @@ df = pd.DataFrame({
     'pressure': pd.Series(data=pressure),
     'humidity': pd.Series(data=humidity)
 })
+
 
 date_counts = df.groupby(['date'])
 present = date_counts.size().to_frame(name='counts')\
@@ -106,7 +74,38 @@ temp_2 = temp_2[:-1]
 present['temp_max_1'] = temp_1
 present['temp_max_2'] = temp_2
 
-predict_1(present, average)
+
+labels = np.array(present['temp_max'])
+features = present.drop('temp_max', axis=1)
+feature_list = list(features.columns)
+features = np.array(features)
+
+train_features, test_features, train_labels, test_labels = train_test_split(features, labels, test_size=0.25,
+                                                                            random_state=42)
+
+print('Training Features Shape:', train_features.shape)
+print('Training Labels Shape:', train_labels.shape)
+print('Testing Features Shape:', test_features.shape)
+print('Testing Labels Shape:', test_labels.shape)
+
+baseline_preds = test_features[:, average.index('temp_max')]
+baseline_errors = abs(baseline_preds - test_labels)
+print('Average baseline error: ', round(np.mean(baseline_errors), 2), 'degrees.')
+
+rf = RandomForestRegressor(n_estimators=1000, random_state=42)
+
+rf.fit(train_features, train_labels)
+
+predictions = rf.predict(test_features)
+errors = abs(predictions - test_labels)
+
+print('Mean Absolute Error:', round(np.mean(errors), 2), 'degrees.')
+
+mape = 100 * (errors / test_labels)
+accuracy = 100 - np.mean(mape)
+print('Accuracy:', round(accuracy, 2), '%.')
+
+
 
 #####
 
