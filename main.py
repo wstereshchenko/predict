@@ -43,7 +43,7 @@ date = []
 for _ in date_str:
     d = datetime.datetime.strptime(_, "%Y-%m-%dT%H:%M:%S.%fZ")
     d.date()
-    d = datetime.datetime(d.year, d.month, d.day, d.hour)
+    d = datetime.datetime(d.year, d.month, d.day)
     date.append(int(d.timestamp()))
 
 df = pd.DataFrame({
@@ -104,7 +104,6 @@ print('Mean Absolute Error:', round(np.mean(errors), 2), 'degrees.')
 mape = 100 * (errors / test_labels)
 accuracy = 100 - np.mean(mape)
 print('Accuracy:', round(accuracy, 2), '%.')
-
 
 
 #####
