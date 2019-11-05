@@ -38,6 +38,7 @@ data = pd.read_csv('ydx_data.csv')
 #####################
 
 data.drop('date_time', axis=1, inplace=True)
+data.drop('id', axis=1, inplace=True)
 
 y = data['temp']
 x = data.drop('temp', axis=1)
@@ -89,9 +90,8 @@ print(ac_sc_knn)
 
 #Построим дерево
 
-dot_data = export_graphviz(tree_grid.best_estimator_, out_file='tree.dot', feature_names=x.columns, filled=True)
-graph = pydot.graph_from_dot_data(dot_data)
-graph.write_png('tree.png')
+dot_data = export_graphviz(tree_grid.best_estimator_, out_file='tree.dot', feature_names=x.columns, filled=True, max_depth=3)
+
 
 
 #####################
