@@ -6,13 +6,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pandas.io.json import json_normalize
 
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
 from sklearn.tree import export_graphviz
+
 import pydot
-from sklearn.tree import export_graphviz
-
 
 def load_data(url, name):
     response = requests.get(url)
@@ -26,84 +26,149 @@ def load_data(url, name):
     normalized_df.to_csv(name, index=False)
 
 
-load_data('http://localhost:8000/api/ydx/history/', 'ydx_data.csv')
-load_data('http://localhost:8000/api/gism/history/', 'gism_data.csv')
-load_data('http://localhost:8000/api/ydx/history/', 'owm_data.csv')
-
-#######
+# load_data('http://localhost:8000/api/ydx/history/', 'ydx_data.csv')
+# load_data('http://localhost:8000/api/gism/history/', 'gism_data.csv')
+# load_data('http://localhost:8000/api/ydx/history/', 'owm_data.csv')
 
 data = pd.read_csv('ydx_data.csv')
 
-date_str = data['date_time'].tolist()
-temp = data['temp'].tolist()
-pressure = data['pressure'].tolist()
-humidity = data['humidity'].tolist()
-date = []
+#######
+#####################
+#####################
+#####################
 
-for _ in date_str:
-    d = datetime.datetime.strptime(_, "%Y-%m-%dT%H:%M:%S.%fZ")
-    d.date()
-    d = datetime.datetime(d.year, d.month, d.day)
-    date.append(int(d.timestamp()))
+data.drop('date_time', axis=1, inplace=True)
 
-df = pd.DataFrame({
-    'date': pd.Series(data=date),
-    'temperature': pd.Series(data=temp),
-    'pressure': pd.Series(data=pressure),
-    'humidity': pd.Series(data=humidity)
-})
+y = data['temp']
+x = data.drop('temp', axis=1)
 
+x_train, x_valid, y_train, y_valid = train_test_split(x, y, test_size=0.3, random_state=17)
 
-date_counts = df.groupby(['date'])
-present = date_counts.size().to_frame(name='counts')\
-    .join(date_counts.agg({'temperature': 'max'}).rename(columns={'temperature': 'temp_max'}))\
-    .join(date_counts.agg({'pressure': 'median'}).rename(columns={'pressure': 'pressure_median'}))\
-    .join(date_counts.agg({'humidity': 'median'}).rename(columns={'humidity': 'humidity_median'})).reset_index()
+first_tree = DecisionTreeClassifier(random_state=17)
 
-average = date_counts.size().to_frame(name='counts')\
-    .join(date_counts.agg({'temperature': 'max'}).rename(columns={'temperature': 'temp_max'}))
+c_v_tree = cross_val_score(first_tree, x_train, y_train, cv=5)
 
-average = list(average.columns)
-
-temp_1 = present['temp_max'].tolist()
-temp_1.insert(0, temp_1[0])
-temp_1 = temp_1[:-1]
-temp_2 = temp_1.copy()
-temp_2.insert(0, temp_1[0])
-temp_2 = temp_2[:-1]
-present['temp_max_1'] = temp_1
-present['temp_max_2'] = temp_2
+print(np.median(c_v_tree), np.mean(c_v_tree))
 
 
-labels = np.array(present['temp_max'])
-features = present.drop('temp_max', axis=1)
-feature_list = list(features.columns)
-features = np.array(features)
+first_knn = KNeighborsClassifier()
 
-train_features, test_features, train_labels, test_labels = train_test_split(features, labels, test_size=0.25,
-                                                                            random_state=42)
+c_v_knn = cross_val_score(first_knn, x_train, y_train, cv=5)
 
-print('Training Features Shape:', train_features.shape)
-print('Training Labels Shape:', train_labels.shape)
-print('Testing Features Shape:', test_features.shape)
-print('Testing Labels Shape:', test_labels.shape)
+print(np.median(c_v_knn), np.mean(c_v_knn))
 
-baseline_preds = test_features[:, average.index('temp_max')]
-baseline_errors = abs(baseline_preds - test_labels)
-print('Average baseline error: ', round(np.mean(baseline_errors), 2), 'degrees.')
+#Настраиваем глубину дерева
 
-rf = RandomForestRegressor(n_estimators=1000, random_state=42)
+tree_params = {'max_depth': np.arange(1, 20), 'max_features': [.5, .7, 1]}
+tree_grid = GridSearchCV(first_tree, tree_params, cv=5, n_jobs=-1)
+tree_grid.fit(x_train, y_train)
 
-rf.fit(train_features, train_labels)
+print(tree_grid.best_score_, tree_grid.best_params_)
 
-predictions = rf.predict(test_features)
-errors = abs(predictions - test_labels)
+#Настраиваем соседей
 
-print('Mean Absolute Error:', round(np.mean(errors), 2), 'degrees.')
+knn_params = {'n_neighbors': range(1, 50)}
+knn_grid = GridSearchCV(first_knn, knn_params, cv=5, n_jobs=-1)
+knn_grid.fit(x_train, y_train)
 
-mape = 100 * (errors / test_labels)
-accuracy = 100 - np.mean(mape)
-print('Accuracy:', round(accuracy, 2), '%.')
+print(knn_grid.best_score_, knn_grid.best_params_)
+
+#проверим на отложенной выборке
+
+tree_valid_pred = tree_grid.predict(x_valid)
+
+ac_sc_tree = accuracy_score(y_valid, tree_valid_pred)
+
+print(ac_sc_tree)
+
+knn_valid_pred = knn_grid.predict(x_valid)
+
+ac_sc_knn = accuracy_score(y_valid, knn_valid_pred)
+
+print(ac_sc_knn)
+
+#Построим дерево
+
+dot_data = export_graphviz(tree_grid.best_estimator_, out_file='tree.dot', feature_names=x.columns, filled=True)
+graph = pydot.graph_from_dot_data(dot_data)
+graph.write_png('tree.png')
+
+
+#####################
+#####################
+#####################
+
+
+# date_str = data['date_time'].tolist()
+# temp = data['temp'].tolist()
+# pressure = data['pressure'].tolist()
+# humidity = data['humidity'].tolist()
+# date = []
+
+# for _ in date_str:
+#     d = datetime.datetime.strptime(_, "%Y-%m-%dT%H:%M:%S.%fZ")
+#     d.date()
+#     d = datetime.datetime(d.year, d.month, d.day)
+#     date.append(int(d.timestamp()))
+#
+# df = pd.DataFrame({
+#     'date': pd.Series(data=date),
+#     'temperature': pd.Series(data=temp),
+#     'pressure': pd.Series(data=pressure),
+#     'humidity': pd.Series(data=humidity)
+# })
+#
+#
+# date_counts = df.groupby(['date'])
+# present = date_counts.size().to_frame(name='counts')\
+#     .join(date_counts.agg({'temperature': 'max'}).rename(columns={'temperature': 'temp_max'}))\
+#     .join(date_counts.agg({'pressure': 'median'}).rename(columns={'pressure': 'pressure_median'}))\
+#     .join(date_counts.agg({'humidity': 'median'}).rename(columns={'humidity': 'humidity_median'})).reset_index()
+#
+# average = date_counts.size().to_frame(name='counts')\
+#     .join(date_counts.agg({'temperature': 'max'}).rename(columns={'temperature': 'temp_max'}))
+#
+# average = list(average.columns)
+#
+# temp_1 = present['temp_max'].tolist()
+# temp_1.insert(0, temp_1[0])
+# temp_1 = temp_1[:-1]
+# temp_2 = temp_1.copy()
+# temp_2.insert(0, temp_1[0])
+# temp_2 = temp_2[:-1]
+# present['temp_max_1'] = temp_1
+# present['temp_max_2'] = temp_2
+#
+#
+# labels = np.array(present['temp_max'])
+# features = present.drop('temp_max', axis=1)
+# feature_list = list(features.columns)
+# features = np.array(features)
+#
+# train_features, test_features, train_labels, test_labels = train_test_split(features, labels, test_size=0.25,
+#                                                                             random_state=42)
+#
+# print('Training Features Shape:', train_features.shape)
+# print('Training Labels Shape:', train_labels.shape)
+# print('Testing Features Shape:', test_features.shape)
+# print('Testing Labels Shape:', test_labels.shape)
+#
+# baseline_preds = test_features[:, average.index('temp_max')]
+# baseline_errors = abs(baseline_preds - test_labels)
+# print('Average baseline error: ', round(np.mean(baseline_errors), 2), 'degrees.')
+#
+# rf = RandomForestRegressor(n_estimators=1000, random_state=42)
+#
+# rf.fit(train_features, train_labels)
+#
+# predictions = rf.predict(test_features)
+# errors = abs(predictions - test_labels)
+#
+# print('Mean Absolute Error:', round(np.mean(errors), 2), 'degrees.')
+#
+# mape = 100 * (errors / test_labels)
+# accuracy = 100 - np.mean(mape)
+# print('Accuracy:', round(accuracy, 2), '%.')
 
 
 #####
