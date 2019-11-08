@@ -26,9 +26,9 @@ def load_data(url, name):
     normalized_df.to_csv(name, index=False)
 
 
-# load_data('http://localhost:8000/api/ydx/history/', 'ydx_data.csv')
-# load_data('http://localhost:8000/api/gism/history/', 'gism_data.csv')
-# load_data('http://localhost:8000/api/ydx/history/', 'owm_data.csv')
+load_data('http://localhost:8000/api/ydx/history/', 'ydx_data.csv')
+load_data('http://localhost:8000/api/gism/history/', 'gism_data.csv')
+load_data('http://localhost:8000/api/ydx/history/', 'owm_data.csv')
 
 data = pd.read_csv('ydx_data.csv')
 
