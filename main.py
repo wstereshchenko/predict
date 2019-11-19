@@ -14,6 +14,7 @@ from sklearn.tree import export_graphviz
 
 import pydot
 
+
 def load_data(url, name):
     response = requests.get(url)
 
