@@ -61,13 +61,14 @@ def delete_passes(data_frame, name):    # Функция заполнения п
 
 # !!!!! Подготовка данных !!!!!
 
-print("!!!!! Подготовка данных !!!!!")
+print("!!!!! Подготовка данных !!!!!\n")
 
 print("% Считывание данных %")
+
 data = pd.read_csv('nocd.csv', na_values='')
 data.drop(['STATION', 'NAME'], axis=1, inplace=True)
 
-print("% Заполнение пропусков в данных %")
+print("% Заполнение пропусков в данных %\n")
 data = delete_passes(data, 'PRCP')
 data = delete_passes(data, 'TAVG')
 data = delete_passes(data, 'TMAX')
@@ -78,7 +79,7 @@ temp_min_y = list(data['TMIN'])
 temp_avg_y = list(data['TAVG'])
 temp_max_t = list(data['TMAX'])
 
-print("% Добавление новых признаков %")
+print("% Добавление новых признаков %\n")
 
 month_day = list(data['DATE'])
 season = list(data['DATE'])
@@ -125,8 +126,17 @@ for i in anomaly:
 for i in sorted(dct):
     print("'%d':%d" % (i, dct[i]))
 
+answer = input('\nВыбор аномального значения. Введите значение: \n')
+
+try:
+    answer = abs(int(answer))
+except:
+    print('Было введено некорректное значение.')
+    answer = random.choice(list(dct.keys()))
+    print('Выбор значения случайно.\nАномальное значение: {}'.format(answer))
+
 for i in range(len(anomaly)):
-    if anomaly[i] > 5:
+    if anomaly[i] > answer:
         anomaly[i] = True
     else:
         anomaly[i] = False
@@ -138,30 +148,31 @@ data.drop(['DATE'], axis=1, inplace=True)
 categorical_columns = [c for c in data.columns if data[c].dtype.name == 'object']
 numerical_columns = [c for c in data.columns if data[c].dtype.name != 'object']
 
-# answer = input('Построить для каждой количественной переменной гистограмму, '
-#                'а для каждой пары таких переменных – диаграмму рассеяния? y/n ')
-#
-# if answer == 'y':
-#     scatter_matrix(data, alpha=0.05, figsize=(10, 10))
-#     plt.show()
-#
-# answer = input('Построить корреляционную матрицу? y/n ')
-#
-# if answer == 'y':
-#     print(data.corr())
+answer = input('Построить для каждой количественной переменной гистограмму, '
+               'а для каждой пары таких переменных – диаграмму рассеяния? y/n\n')
 
+if answer == 'y':
+    scatter_matrix(data, alpha=0.05, figsize=(10, 10))
+    plt.show()
 
-print('% Удаление невосполнимых пропусков %')
+answer = input('Построить корреляционную матрицу? y/n\n')
+
+if answer == 'y':
+    print(data.corr())
+
+print('% Удаление невосполнимых пропусков %\n')
 data = data.dropna(axis=0)
 
-print('% Оставшиеся данные %')
+print('% Оставшиеся данные %\n')
 print(data.describe())
 
-print("% Обработка бинарных и небинархных признаков %")
+print("\n% Обработка бинарных и небинархных признаков %\n")
+
 data_describe = data.describe(include=[object])
 binary_columns = [c for c in categorical_columns if data_describe[c]['unique'] == 2]
 nonbinary_columns = [c for c in categorical_columns if data_describe[c]['unique'] > 2]
-print("Бинарные признаки: {}\nНебинарные признаки: {}".format(binary_columns, nonbinary_columns))
+
+print("Бинарные признаки: {}\nНебинарные признаки: {}\n".format(binary_columns, nonbinary_columns))
 
 for c in binary_columns:
     top = data_describe[c]['top']
@@ -170,25 +181,26 @@ for c in binary_columns:
     data.loc[np.logical_not(top_items), c] = 1
 
 data_nonbinary = pd.get_dummies(data[nonbinary_columns])
-print(data_nonbinary.columns)
 
-print("% Нормализация количественных признаков %")
+print("% Нормализация количественных признаков %\n")
+
 data_numerical = data[numerical_columns]
 data_numerical = (data_numerical - data_numerical.mean()) / data_numerical.std()
+
 print(data_numerical.describe())
 
 data = pd.concat((data_numerical, data[binary_columns], data_nonbinary), axis=1)
 data = pd.DataFrame(data, dtype=float)
-print(data.shape)
-print(data.columns)
 
+print("\nКоличество (значений, признаков)")
+print(data.shape)
 
 X = data.drop(('ANOMALY'), axis=1)
 y = data['ANOMALY']
 feature_names = X.columns
-print(feature_names)
 
-print('% Подготовим выборки %')
+print('% Подготовим выборки %\n')
+
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=11)
 
 # lab_enc = preprocessing.LabelEncoder()
@@ -196,87 +208,185 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_
 
 N_train, _ = X_train.shape
 N_test,  _ = X_test.shape
-print("Обучающая выборка: {}\nТестовая выборка: {}".format(N_train, N_test))
 
-print("!!!!! Данные готовы !!!!!")
+print("Обучающая выборка: {}\nТестовая выборка: {}\n".format(N_train, N_test))
+
+print("!!!!! Данные готовы !!!!!\n")
 
 # !!!!! Данные готовы !!!!!
 
 print(60 * '=')
-print('kNN')
+
+print('Random Forest\n')
+print("-- All Features --\n")
+
+rf = ensemble.RandomForestClassifier(n_estimators=100, random_state=11)
+rf.fit(X_train, y_train)
+err_train = np.mean(y_train != rf.predict(X_train))
+err_test = np.mean(y_test != rf.predict(X_test))
+
+print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
+
+print(30 * '//')
+
+importances = rf.feature_importances_
+indices = np.argsort(importances)[::-1]
+
+print("\nFeature importances:")
+for f, idx in enumerate(indices):
+    print("{:2d}. feature '{:5s}' ({:.4f})".format(f + 1, feature_names[idx], importances[idx]))
+
+answer = input('\nПостроить столбцовую диаграмму, графически представляющую значимость первых признаков? y/n\n')
+if answer == 'y':
+    try:
+        answer = input('Введите количесвто признаков для постройки графика: ')
+        answer = abs(int(answer))
+        print(type(answer))
+        print(int(len(indices)))
+        if answer <= int(len(indices)):
+            d_first = 20
+            plt.figure(figsize=(8, 8))
+            plt.title("Feature importances")
+            plt.bar(range(d_first), importances[indices[:d_first]], align='center')
+            plt.xticks(range(d_first), np.array(feature_names)[indices[:d_first]], rotation=90)
+            plt.xlim([-1, d_first])
+            plt.show()
+
+        else:
+            print('Было введено некорректное значение')
+
+    except:
+        print('Было введено некорректное значение')
+
+number = int(input("Количество признаков: "))
+
+if number > len(indices):
+    number = len(indices)
+
+best_features = indices[:number]
+best_features_names = feature_names[best_features]
+
+print("Best Features: {}\n".format(best_features_names))
+print("-- Best Features --\n")
+
+rf = ensemble.RandomForestClassifier(n_estimators=100, random_state=11)
+rf.fit(X_train[best_features_names], y_train)
+err_train = np.mean(y_train != rf.predict(X_train[best_features_names]))
+err_test = np.mean(y_test != rf.predict(X_test[best_features_names]))
+
+print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
+
+print(60 * '=')
+
+print('kNN\n')
+print("-- All Features --\n")
 
 knn = KNeighborsClassifier()
 knn.fit(X_train, y_train)
-
 y_train_predict = knn.predict(X_train)
 y_test_predict = knn.predict(X_test)
-
 err_train = np.mean(y_train != y_train_predict)
 err_test = np.mean(y_test != y_test_predict)
-print(err_train, err_test)
+
+print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
+
+print('Попробуем уменьшить тестовую ошибку, варьируя параметры метода.\n')
 
 n_neighbors_array = [1, 3, 5, 7, 10, 15]
 knn = KNeighborsClassifier()
 grid = GridSearchCV(knn, param_grid={'n_neighbors': n_neighbors_array})
 grid.fit(X_train, y_train)
-
 best_cv_err = 1 - grid.best_score_
 best_n_neighbors = grid.best_estimator_.n_neighbors
-print(best_cv_err, best_n_neighbors)
 
+print("Наименьшая оштбка состовляет: {}, при k: {}\n".format(best_cv_err, best_n_neighbors))
 
 knn = KNeighborsClassifier(n_neighbors=best_n_neighbors)
 knn.fit(X_train, y_train)
-
 err_train = np.mean(y_train != knn.predict(X_train))
 err_test = np.mean(y_test != knn.predict(X_test))
-print(err_train, err_test)
+
+print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
+
+print("-- Best Features --\n")
+
+knn = KNeighborsClassifier(n_neighbors=best_n_neighbors)
+knn.fit(X_train[best_features_names], y_train)
+err_train = np.mean(y_train != knn.predict(X_train[best_features_names]))
+err_test = np.mean(y_test != knn.predict(X_test[best_features_names]))
+
+print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
 
 print(60 * '=')
-
 print('SVC')
 
 svc = SVC()
 svc.fit(X_train, y_train)
-
 err_train = np.mean(y_train != svc.predict(X_train))
 err_test = np.mean(y_test != svc.predict(X_test))
-print(err_train, err_test)
+
+print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
+
+print('Подбор параметров (Радиальное-Линейное-Полиномиальное ядро)')
+print(60 * '-')
 
 print('rbf')
+print("\n-- All Features --\n")
 
 C_array = np.logspace(-3, 3, num=7)
 gamma_array = np.logspace(-5, 2, num=8)
 svc = SVC(kernel='rbf')
 grid = GridSearchCV(svc, param_grid={'C': C_array, 'gamma': gamma_array})
 grid.fit(X_train, y_train)
+
 print('CV error    = ', 1 - grid.best_score_)
 print('best C      = ', grid.best_estimator_.C)
 print('best gamma  = ', grid.best_estimator_.gamma)
 
 svc = SVC(kernel='rbf', C=grid.best_estimator_.C, gamma=grid.best_estimator_.gamma)
 svc.fit(X_train, y_train)
-
 err_train = np.mean(y_train != svc.predict(X_train))
 err_test = np.mean(y_test != svc.predict(X_test))
-print(err_train, err_test)
+
+print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
+
+print("-- Best Features --\n")
+
+svc = SVC(kernel='rbf', C=grid.best_estimator_.C, gamma=grid.best_estimator_.gamma)
+svc.fit(X_train[best_features_names], y_train)
+err_train = np.mean(y_train != svc.predict(X_train[best_features_names]))
+err_test = np.mean(y_test != svc.predict(X_test[best_features_names]))
+
+print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
 
 print(60 * '-')
+
 print('linear')
+print("\n-- All Features --\n")
 
 C_array = np.logspace(-3, 3, num=7)
 svc = SVC(kernel='linear')
 grid = GridSearchCV(svc, param_grid={'C': C_array})
 grid.fit(X_train, y_train)
+
 print('CV error    = ', 1 - grid.best_score_)
 print('best C      = ', grid.best_estimator_.C)
 
 svc = SVC(kernel='linear', C=grid.best_estimator_.C)
 svc.fit(X_train, y_train)
-
 err_train = np.mean(y_train != svc.predict(X_train))
 err_test = np.mean(y_test != svc.predict(X_test))
-print(err_train, err_test)
+
+print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
+
+print("-- Best Features --\n")
+
+svc = SVC(kernel='linear', C=grid.best_estimator_.C)
+svc.fit(X_train[best_features_names], y_train)
+err_train = np.mean(y_train != svc.predict(X_train[best_features_names]))
+err_test = np.mean(y_test != svc.predict(X_test[best_features_names]))
+
+print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
 
 print(60 * '-')
 print('poly')
@@ -287,6 +397,7 @@ degree_array = [2, 3, 4]
 svc = SVC(kernel='poly')
 grid = GridSearchCV(svc, param_grid={'C': C_array, 'gamma': gamma_array, 'degree': degree_array})
 grid.fit(X_train, y_train)
+
 print('CV error    = ', 1 - grid.best_score_)
 print('best C      = ', grid.best_estimator_.C)
 print('best gamma  = ', grid.best_estimator_.gamma)
@@ -295,60 +406,38 @@ print('best degree = ', grid.best_estimator_.degree)
 svc = SVC(kernel='poly', C=grid.best_estimator_.C,
           gamma=grid.best_estimator_.gamma, degree=grid.best_estimator_.degree)
 svc.fit(X_train, y_train)
-
 err_train = np.mean(y_train != svc.predict(X_train))
 err_test = np.mean(y_test != svc.predict(X_test))
-print(err_train, err_test)
+
+print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
+
+print("-- Best Features --\n")
+
+svc = SVC(kernel='poly', C=grid.best_estimator_.C,
+          gamma=grid.best_estimator_.gamma, degree=grid.best_estimator_.degree)
+svc.fit(X_train[best_features_names], y_train)
+err_train = np.mean(y_train != svc.predict(X_train[best_features_names]))
+err_test = np.mean(y_test != svc.predict(X_test[best_features_names]))
+
+print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
 
 print(60 * '=')
-print('Random Forest')
 
-rf = ensemble.RandomForestClassifier(n_estimators=100, random_state=11)
-rf.fit(X_train, y_train)
-
-err_train = np.mean(y_train != rf.predict(X_train))
-err_test = np.mean(y_test != rf.predict(X_test))
-print(err_train, err_test)
-
-print(30 * '//')
-
-importances = rf.feature_importances_
-indices = np.argsort(importances)[::-1]
-
-print("Feature importances:")
-for f, idx in enumerate(indices):
-    print("{:2d}. feature '{:5s}' ({:.4f})".format(f + 1, feature_names[idx], importances[idx]))
-
-# d_first = 20
-# plt.figure(figsize=(8, 8))
-# plt.title("Feature importances")
-# plt.bar(range(d_first), importances[indices[:d_first]], align='center')
-# plt.xticks(range(d_first), np.array(feature_names)[indices[:d_first]], rotation=90)
-# plt.xlim([-1, d_first])
-# plt.show()
-
-number = input("% Количесвто призкаков %")
-if number > len(indices):
-    number = len(indices)
-
-best_features = indices[:number]
-best_features_names = feature_names[best_features]
-print(best_features_names)
-
-print(60 * '=')
 print('GBT')
-print('All Features')
+print('\n-- All Features --\n')
+
 gbt = ensemble.GradientBoostingClassifier(n_estimators=100, random_state=11)
 gbt.fit(X_train, y_train)
-
 err_train = np.mean(y_train != gbt.predict(X_train))
 err_test = np.mean(y_test != gbt.predict(X_test))
-print(err_train, err_test)
 
-print('Best Features')
+print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
+
+print('-- Best Features --')
+
 gbt = ensemble.GradientBoostingClassifier(n_estimators=100, random_state=11)
 gbt.fit(X_train[best_features_names], y_train)
-
 err_train = np.mean(y_train != gbt.predict(X_train[best_features_names]))
 err_test = np.mean(y_test != gbt.predict(X_test[best_features_names]))
-print(err_train, err_test)
+
+print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
