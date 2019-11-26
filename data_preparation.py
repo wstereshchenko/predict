@@ -18,7 +18,7 @@ from pandas.plotting import scatter_matrix
 plt.style.use('ggplot')
 
 
-def delete_passes(data_frame, name):
+def delete_passes(data_frame, name):    # Функция заполнения пропусков в данных
 
     for i in range(len(data_frame)):
         if np.isnan(data_frame[name][i]):
@@ -59,9 +59,15 @@ def delete_passes(data_frame, name):
     return data_frame
 
 
+# !!!!! Подготовка данных !!!!!
+
+print("!!!!! Подготовка данных !!!!!")
+
+print("% Считывание данных %")
 data = pd.read_csv('nocd.csv', na_values='')
 data.drop(['STATION', 'NAME'], axis=1, inplace=True)
 
+print("% Заполнение пропусков в данных %")
 data = delete_passes(data, 'PRCP')
 data = delete_passes(data, 'TAVG')
 data = delete_passes(data, 'TMAX')
@@ -71,6 +77,8 @@ temp_max_y = list(data['TMAX'])
 temp_min_y = list(data['TMIN'])
 temp_avg_y = list(data['TAVG'])
 temp_max_t = list(data['TMAX'])
+
+print("% Добавление новых признаков %")
 
 month_day = list(data['DATE'])
 season = list(data['DATE'])
@@ -95,25 +103,16 @@ temp_max_y[1:len(temp_max_y)-1] = temp_max_y
 temp_min_y[1:len(temp_min_y)-1] = temp_min_y
 temp_max_t.pop(0)
 
-################
-
 data['TAVG'] = pd.Series(temp_avg_y)
 data['TMAX'] = pd.Series(temp_max_y)
 data['TMIN'] = pd.Series(temp_min_y)
-data['MD'] = pd.Series(month_day)
 data['SEASON'] = pd.Series(season)
 
-
-#######
-# data['TMAXT'] = pd.Series(temp_max_t) не подходит
+# data['MD'] = pd.Series(month_day) # Вопрос, использовать ли
 
 anomaly = []
 for i in range(1, len(data['TAVG'])):
     anomaly.append(abs(round(data['TMAX'][i] - data['TMAX'][i-1])))
-
-# anomaly = pd.Series(anomaly)
-
-print(sorted(anomaly))
 
 dct = {}
 
@@ -134,24 +133,35 @@ for i in range(len(anomaly)):
 
 data['ANOMALY'] = pd.Series(anomaly)
 
-#######
-
 data.drop(['DATE'], axis=1, inplace=True)
 
 categorical_columns = [c for c in data.columns if data[c].dtype.name == 'object']
 numerical_columns = [c for c in data.columns if data[c].dtype.name != 'object']
 
-# scatter_matrix(data, alpha=0.05, figsize=(10, 10))
-# plt.show()
+# answer = input('Построить для каждой количественной переменной гистограмму, '
+#                'а для каждой пары таких переменных – диаграмму рассеяния? y/n ')
+#
+# if answer == 'y':
+#     scatter_matrix(data, alpha=0.05, figsize=(10, 10))
+#     plt.show()
+#
+# answer = input('Построить корреляционную матрицу? y/n ')
+#
+# if answer == 'y':
+#     print(data.corr())
 
+
+print('% Удаление невосполнимых пропусков %')
 data = data.dropna(axis=0)
 
+print('% Оставшиеся данные %')
 print(data.describe())
 
+print("% Обработка бинарных и небинархных признаков %")
 data_describe = data.describe(include=[object])
 binary_columns = [c for c in categorical_columns if data_describe[c]['unique'] == 2]
 nonbinary_columns = [c for c in categorical_columns if data_describe[c]['unique'] > 2]
-print(binary_columns, nonbinary_columns)
+print("Бинарные признаки: {}\nНебинарные признаки: {}".format(binary_columns, nonbinary_columns))
 
 for c in binary_columns:
     top = data_describe[c]['top']
@@ -162,6 +172,7 @@ for c in binary_columns:
 data_nonbinary = pd.get_dummies(data[nonbinary_columns])
 print(data_nonbinary.columns)
 
+print("% Нормализация количественных признаков %")
 data_numerical = data[numerical_columns]
 data_numerical = (data_numerical - data_numerical.mean()) / data_numerical.std()
 print(data_numerical.describe())
@@ -177,7 +188,7 @@ y = data['ANOMALY']
 feature_names = X.columns
 print(feature_names)
 
-
+print('% Подготовим выборки %')
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=11)
 
 # lab_enc = preprocessing.LabelEncoder()
@@ -185,8 +196,11 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_
 
 N_train, _ = X_train.shape
 N_test,  _ = X_test.shape
-print(N_train, N_test)
+print("Обучающая выборка: {}\nТестовая выборка: {}".format(N_train, N_test))
 
+print("!!!!! Данные готовы !!!!!")
+
+# !!!!! Данные готовы !!!!!
 
 print(60 * '=')
 print('kNN')
@@ -297,81 +311,44 @@ err_test = np.mean(y_test != rf.predict(X_test))
 print(err_train, err_test)
 
 print(30 * '//')
-#
-# importances = rf.feature_importances_
-# indices = np.argsort(importances)[::-1]
-#
-# print("Feature importances:")
-# for f, idx in enumerate(indices):
-#     print("{:2d}. feature '{:5s}' ({:.4f})".format(f + 1, feature_names[idx], importances[idx]))
 
-####################
+importances = rf.feature_importances_
+indices = np.argsort(importances)[::-1]
 
-# best_features = indices[:8]
-# best_features_names = feature_names[best_features]
-# print(best_features_names)
+print("Feature importances:")
+for f, idx in enumerate(indices):
+    print("{:2d}. feature '{:5s}' ({:.4f})".format(f + 1, feature_names[idx], importances[idx]))
 
-################
+# d_first = 20
+# plt.figure(figsize=(8, 8))
+# plt.title("Feature importances")
+# plt.bar(range(d_first), importances[indices[:d_first]], align='center')
+# plt.xticks(range(d_first), np.array(feature_names)[indices[:d_first]], rotation=90)
+# plt.xlim([-1, d_first])
+# plt.show()
 
+number = input("% Количесвто призкаков %")
+if number > len(indices):
+    number = len(indices)
 
-# data.drop(data[-1:], inplace=True)
-#
-# data.dropna(inplace=True)
-# data.drop(['DATE'], axis=1, inplace=True)
-#
-# y = data['TMAXT']
-# x = data.drop('TMAXT', axis=1)
-#
-#
-# x_train, x_valid, y_train, y_valid = train_test_split(x, y, test_size=0.3, random_state=17)
+best_features = indices[:number]
+best_features_names = feature_names[best_features]
+print(best_features_names)
 
-# lab_enc = preprocessing.LabelEncoder()
-# y_train = lab_enc.fit_transform(y_train)
-# print(y_train)
-# print(utils.multiclass.type_of_target(y_train))
-# print(utils.multiclass.type_of_target(y_train.astype('int')))
-# print(utils.multiclass.type_of_target(y_train))
+print(60 * '=')
+print('GBT')
+print('All Features')
+gbt = ensemble.GradientBoostingClassifier(n_estimators=100, random_state=11)
+gbt.fit(X_train, y_train)
 
-# first_tree = DecisionTreeClassifier(random_state=17)
-#
-# c_v_tree = cross_val_score(first_tree, x_train, y_train, cv=5)
-#
-# print(np.median(c_v_tree), np.mean(c_v_tree))
-#
-# first_knn = KNeighborsClassifier()
-#
-# c_v_knn = cross_val_score(first_knn, x_train, y_train, cv=5)
-#
-# print(np.median(c_v_knn), np.mean(c_v_knn))
-#
-# #Настраиваем глубину дерева
-#
-# tree_params = {'max_depth': np.arange(1, 20), 'max_features': [.5, .7, 1]}
-# tree_grid = GridSearchCV(first_tree, tree_params, cv=5, n_jobs=-1)
-# tree_grid.fit(x_train, y_train)
-#
-# print(tree_grid.best_score_, tree_grid.best_params_)
-#
-# #Настраиваем соседей
-#
-# knn_params = {'n_neighbors': range(1, 50)}
-# knn_grid = GridSearchCV(first_knn, knn_params, cv=5, n_jobs=-1)
-# knn_grid.fit(x_train, y_train)
-#
-# print(knn_grid.best_score_, knn_grid.best_params_)
-#
-# #проверим на отложенной выборке
-#
-# tree_valid_pred = tree_grid.predict(x_valid)
-#
-# ac_sc_tree = accuracy_score(y_valid, tree_valid_pred)
-#
-# print(ac_sc_tree)
-#
-# knn_valid_pred = knn_grid.predict(x_valid)
-#
-# ac_sc_knn = accuracy_score(y_valid, knn_valid_pred)
-#
-# print(ac_sc_knn)
+err_train = np.mean(y_train != gbt.predict(X_train))
+err_test = np.mean(y_test != gbt.predict(X_test))
+print(err_train, err_test)
 
+print('Best Features')
+gbt = ensemble.GradientBoostingClassifier(n_estimators=100, random_state=11)
+gbt.fit(X_train[best_features_names], y_train)
 
+err_train = np.mean(y_train != gbt.predict(X_train[best_features_names]))
+err_test = np.mean(y_test != gbt.predict(X_test[best_features_names]))
+print(err_train, err_test)
