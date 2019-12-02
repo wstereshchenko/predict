@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from statistics import median
+from warnings import simplefilter
 
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.tree import DecisionTreeClassifier
@@ -16,6 +17,8 @@ from sklearn import ensemble
 from pandas.plotting import scatter_matrix
 
 plt.style.use('ggplot')
+
+simplefilter(action='ignore', category=Warning)
 
 
 def delete_passes(data_frame, name):    # Функция заполнения пропусков в данных
@@ -239,12 +242,9 @@ for f, idx in enumerate(indices):
 answer = input('\nПостроить столбцовую диаграмму, графически представляющую значимость первых признаков? y/n\n')
 if answer == 'y':
     try:
-        answer = input('Введите количесвто признаков для постройки графика: ')
-        answer = abs(int(answer))
-        print(type(answer))
-        print(int(len(indices)))
+        answer = abs(int(input('Введите количесвто признаков для постройки графика: ')))
         if answer <= int(len(indices)):
-            d_first = 20
+            d_first = answer
             plt.figure(figsize=(8, 8))
             plt.title("Feature importances")
             plt.bar(range(d_first), importances[indices[:d_first]], align='center')
@@ -299,7 +299,7 @@ grid.fit(X_train, y_train)
 best_cv_err = 1 - grid.best_score_
 best_n_neighbors = grid.best_estimator_.n_neighbors
 
-print("Наименьшая оштбка состовляет: {}, при k: {}\n".format(best_cv_err, best_n_neighbors))
+print("Наименьшая ошибка составляет: {}, при k: {}\n".format(best_cv_err, best_n_neighbors))
 
 knn = KNeighborsClassifier(n_neighbors=best_n_neighbors)
 knn.fit(X_train, y_train)
