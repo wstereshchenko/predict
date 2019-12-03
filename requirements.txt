@@ -1,3 +1,4 @@
+altgraph==0.16.1
 certifi==2019.9.11
 chardet==3.0.4
 cycler==0.10.0
@@ -5,12 +6,14 @@ get==2019.4.13
 idna==2.8
 joblib==0.14.0
 kiwisolver==1.1.0
+macholib==1.11
 matplotlib==3.1.1
 numpy==1.17.2
 pandas==0.25.1
 post==2019.4.13
 public==2019.4.13
 pydot==1.4.1
+PyInstaller==3.5
 pyparsing==2.4.2
 python-dateutil==2.8.0
 pytz==2019.3
