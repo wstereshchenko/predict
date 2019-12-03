@@ -71,7 +71,7 @@ print("% Считывание данных %")
 data = pd.read_csv('nocd.csv', na_values='')
 data.drop(['STATION', 'NAME'], axis=1, inplace=True)
 
-print("% Заполнение пропусков в данных %\n")
+print("\n% Заполнение пропусков в данных %\n")
 data = delete_passes(data, 'PRCP')
 data = delete_passes(data, 'TAVG')
 data = delete_passes(data, 'TMAX')
@@ -115,8 +115,8 @@ data['SEASON'] = pd.Series(season)
 # data['MD'] = pd.Series(month_day) # Вопрос, использовать ли
 
 anomaly = []
-for i in range(1, len(data['TAVG'])):
-    anomaly.append(abs(round(data['TMAX'][i] - data['TMAX'][i-1])))
+for i in range(0, len(data['TAVG'])-1):
+    anomaly.append(abs(round(data['TMAX'][i+1] - data['TMAX'][i],1)))
 
 dct = {}
 
@@ -126,13 +126,13 @@ for i in anomaly:
     else:
         dct[i] = 1
 
-for i in sorted(dct):
-    print("'%d':%d" % (i, dct[i]))
+# print(sorted(dct))
 
-answer = input('\nВыбор аномального значения. Введите значение: \n')
+answer = input('Выбор аномального значения. Введите значение: \n')
 
 try:
-    answer = abs(int(answer))
+    answer = abs(round(float(answer), 1))
+
 except:
     print('Было введено некорректное значение.')
     answer = random.choice(list(dct.keys()))
@@ -163,7 +163,7 @@ answer = input('Построить корреляционную матрицу? 
 if answer == 'y':
     print(data.corr())
 
-print('% Удаление невосполнимых пропусков %\n')
+print('\n% Удаление невосполнимых пропусков %\n')
 data = data.dropna(axis=0)
 
 print('% Оставшиеся данные %\n')
@@ -202,7 +202,9 @@ X = data.drop(('ANOMALY'), axis=1)
 y = data['ANOMALY']
 feature_names = X.columns
 
-print('% Подготовим выборки %\n')
+data.to_csv('data_frame.csv')
+
+print('\n% Подготовим выборки %\n')
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=11)
 
@@ -242,7 +244,7 @@ for f, idx in enumerate(indices):
 answer = input('\nПостроить столбцовую диаграмму, графически представляющую значимость первых признаков? y/n\n')
 if answer == 'y':
     try:
-        answer = abs(int(input('Введите количесвто признаков для постройки графика: ')))
+        answer = abs(int(input('Введите количесвто признаков для постройки графика: \n')))
         if answer <= int(len(indices)):
             d_first = answer
             plt.figure(figsize=(8, 8))
@@ -258,7 +260,7 @@ if answer == 'y':
     except:
         print('Было введено некорректное значение')
 
-number = int(input("Количество признаков: "))
+number = int(input("Количество признаков: \n"))
 
 if number > len(indices):
     number = len(indices)
@@ -318,7 +320,7 @@ err_test = np.mean(y_test != knn.predict(X_test[best_features_names]))
 print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
 
 print(60 * '=')
-print('SVC')
+print('SVC\n')
 
 svc = SVC()
 svc.fit(X_train, y_train)
@@ -348,7 +350,7 @@ svc.fit(X_train, y_train)
 err_train = np.mean(y_train != svc.predict(X_train))
 err_test = np.mean(y_test != svc.predict(X_test))
 
-print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
+print('\nОшибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
 
 print("-- Best Features --\n")
 
@@ -377,7 +379,7 @@ svc.fit(X_train, y_train)
 err_train = np.mean(y_train != svc.predict(X_train))
 err_test = np.mean(y_test != svc.predict(X_test))
 
-print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
+print('\nОшибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
 
 print("-- Best Features --\n")
 
@@ -422,7 +424,7 @@ err_test = np.mean(y_test != svc.predict(X_test[best_features_names]))
 print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
 
 print(60 * '=')
-
+####
 print('GBT')
 print('\n-- All Features --\n')
 
@@ -441,3 +443,17 @@ err_train = np.mean(y_train != gbt.predict(X_train[best_features_names]))
 err_test = np.mean(y_test != gbt.predict(X_test[best_features_names]))
 
 print('Ошибка на обучающей выборке: {}\nОшибка на тестовой выборке: {}\n'.format(err_train, err_test))
+
+print('+' * 60)
+print('=' * 60)
+print('*' * 60)
+
+# print('\n% Проверка на новых данных %\n')
+#
+# data_test = pd.read_csv('nocd_test.csv', na_values='')
+# data_test.drop(['STATION', 'NAME', 'LATITUDE', 'LONGITUDE', 'ELEVATION', 'DATE', 'PRCP_ATTRIBUTES', 'TAVG_ATTRIBUTES', 'TMAX_ATTRIBUTES', 'TMIN_ATTRIBUTES'], axis=1, inplace=True)
+#
+# data_test = delete_passes(data_test, 'PRCP')
+# data_test = delete_passes(data_test, 'TAVG')
+# data_test = delete_passes(data_test, 'TMAX')
+# data_test = delete_passes(data_test, 'TMIN')
